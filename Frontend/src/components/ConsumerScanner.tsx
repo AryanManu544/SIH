@@ -4,17 +4,33 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { QrCode, Scan, CheckCircle, AlertTriangle, Package, MapPin, Calendar, Wheat, FlaskConical } from 'lucide-react';
-import { useQRScanner, ConsumerProduct } from '../hooks/useQRScanner';
+import { 
+  QrCode, Scan, CheckCircle, AlertTriangle, Package, 
+  MapPin, Calendar, Wheat, FlaskConical 
+} from 'lucide-react';
+import { useBlockchainQRScanner } from '../hooks/useBlockchainQRScanner';
+
+// Define a type that matches your hook’s scanResult
+export type ConsumerProduct = {
+  productId: string;
+  productName: string;
+  category: string;
+  origin: string;
+  certifications: string[];
+  isAuthentic: boolean;
+  exists: boolean;
+  verifiedAt: string;
+};
 
 interface ConsumerScannerProps {
   onLogout: () => void;
 }
 
 export function ConsumerScanner({ onLogout }: ConsumerScannerProps) {
-  const { isScanning, scanResult, error, simulateScan, clearResult } = useQRScanner();
+  const { isScanning, scanResult, error, scanAndVerify, simulateScan, clearResult } = useBlockchainQRScanner();
   const [scanHistory, setScanHistory] = useState<ConsumerProduct[]>([]);
 
+  // Demo scan handler
   const handleScan = async () => {
     const result = await simulateScan();
     if (result.success && result.data) {
@@ -22,22 +38,16 @@ export function ConsumerScanner({ onLogout }: ConsumerScannerProps) {
     }
   };
 
-  const getStatusColor = (status: ConsumerProduct['status']) => {
-    switch (status) {
-      case 'verified': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      case 'authentic': return 'bg-teal-100 text-teal-800 border-teal-300';
-      case 'suspicious': return 'bg-amber-100 text-amber-800 border-amber-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
+  const getStatusColor = (isAuthentic: boolean) => {
+    return isAuthentic
+      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+      : 'bg-amber-100 text-amber-800 border-amber-300';
   };
 
-  const getStatusIcon = (status: ConsumerProduct['status']) => {
-    switch (status) {
-      case 'verified': return <CheckCircle className="w-4 h-4" />;
-      case 'authentic': return <CheckCircle className="w-4 h-4" />;
-      case 'suspicious': return <AlertTriangle className="w-4 h-4" />;
-      default: return null;
-    }
+  const getStatusIcon = (isAuthentic: boolean) => {
+    return isAuthentic
+      ? <CheckCircle className="w-4 h-4" />
+      : <AlertTriangle className="w-4 h-4" />;
   };
 
   return (
@@ -120,37 +130,29 @@ export function ConsumerScanner({ onLogout }: ConsumerScannerProps) {
             {scanResult ? (
               <div className="space-y-6">
                 <div className="flex items-center justify-center">
-                  <Badge className={`px-4 py-2 rounded-xl border ${getStatusColor(scanResult.status)} flex items-center space-x-2`}>
-                    {getStatusIcon(scanResult.status)}
-                    <span className="font-semibold capitalize">{scanResult.status}</span>
+                  <Badge className={`px-4 py-2 rounded-xl border ${getStatusColor(scanResult.isAuthentic)} flex items-center space-x-2`}>
+                    {getStatusIcon(scanResult.isAuthentic)}
+                    <span className="font-semibold">{scanResult.isAuthentic ? 'Authentic' : 'Suspicious'}</span>
                   </Badge>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-emerald-900">{scanResult.name}</h3>
+                  <h3 className="text-xl font-bold text-emerald-900">{scanResult.productName}</h3>
                   <p className="text-slate-600">{scanResult.category}</p>
-                  <p className="text-sm text-emerald-600 font-mono">{scanResult.id}</p>
+                  <p className="text-sm text-emerald-600 font-mono">{scanResult.productId}</p>
                   <div className="flex items-center space-x-3 mt-2">
                     <MapPin className="w-4 h-4 text-emerald-600" />
                     <span className="text-sm text-slate-600">{scanResult.origin}</span>
                   </div>
                   <div className="flex items-center space-x-3 mt-1">
-                    <Calendar className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm text-slate-600">{scanResult.harvestDate}</span>
-                  </div>
-                  <div className="flex items-center space-x-3 mt-1">
-                    <Wheat className="w-4 h-4 text-teal-600" />
-                    <span className="text-sm text-slate-600">{scanResult.farmer}</span>
-                  </div>
-                  <div className="flex items-center space-x-3 mt-1">
                     <FlaskConical className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-slate-600">{scanResult.labTested ? 'Lab Tested' : 'Not Tested'}</span>
+                    <span className="text-sm text-slate-600">{scanResult.isAuthentic ? 'Lab Tested' : 'Not Tested'}</span>
                   </div>
 
                   {/* Certifications */}
                   <div className="mt-2">
                     <p className="font-semibold text-emerald-900 mb-1">Certifications:</p>
                     <div className="flex flex-wrap gap-2">
-                      {scanResult.certifications.map((cert, idx) => (
+                      {scanResult.certifications.map((cert: string, idx: number) => (
                         <Badge key={idx} className="bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg px-2 py-1">{cert}</Badge>
                       ))}
                     </div>
@@ -182,13 +184,13 @@ export function ConsumerScanner({ onLogout }: ConsumerScannerProps) {
               {scanHistory.map((product, idx) => (
                 <div key={idx} className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
                   <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-semibold text-emerald-900 text-sm">{product.name}</h4>
-                    <Badge className={`text-xs ${getStatusColor(product.status)} flex items-center space-x-1`}>
-                      {getStatusIcon(product.status)}
-                      <span className="capitalize">{product.status}</span>
+                    <h4 className="font-semibold text-emerald-900 text-sm">{product.productName}</h4>
+                    <Badge className={`text-xs ${getStatusColor(product.isAuthentic)} flex items-center space-x-1`}>
+                      {getStatusIcon(product.isAuthentic)}
+                      <span>{product.isAuthentic ? 'Authentic' : 'Suspicious'}</span>
                     </Badge>
                   </div>
-                  <p className="text-xs text-slate-600">{product.id}</p>
+                  <p className="text-xs text-slate-600">{product.productId}</p>
                   <p className="text-xs text-slate-500 mt-1">{product.origin}</p>
                 </div>
               ))}
