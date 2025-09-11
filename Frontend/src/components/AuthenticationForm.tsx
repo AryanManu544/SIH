@@ -12,8 +12,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth } from './firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
-const API_BASE_URL = 'http://localhost:3001/auth';
-
+const API_BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://sih-fq99.onrender.com/auth"
+    : "http://localhost:3001/auth";
+  
 declare global {
   interface Window {
     recaptchaVerifier?: RecaptchaVerifier;
